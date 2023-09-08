@@ -1,7 +1,5 @@
 /*
-  MP3 input for Audiere by Matt Campbell <mattcampbell@pobox.com>, based on
-  libavcodec from ffmpeg (http://ffmpeg.sourceforge.net/).  I hope this will
-  turn out better than mpegsound did.
+  MP3 input for Audiere by cdfmr, base on minimp3.
 */
 
 #include <string.h>
@@ -12,32 +10,18 @@
 
 namespace audiere {
 
-
   MP3InputStream::MP3InputStream() {
-    m_eof = false;
-
-    m_channel_count = 2;
-    m_sample_rate = 44100;
-    m_sample_format = SF_S16;
-
-    m_context = 0;
-
-    m_input_position = 0;
-    m_input_length = 0;
-    m_decode_buffer = 0;
-    m_first_frame = true;
-
-    m_seekable = false;
-    m_length = 0;
-    m_position = 0;
+    m_mp3ex = 0;
+    m_mp3io.read = mp3Read;
+    m_mp3io.read_data = this;
+    m_mp3io.seek = mp3Seek;
+    m_mp3io.seek_data = this;
   }
 
-  
   MP3InputStream::~MP3InputStream() {
-    delete[] m_decode_buffer;
-    if (m_context) {
-      mpaudec_clear(m_context);
-      delete m_context;
+    if (m_mp3ex) {
+      mp3dec_ex_close(m_mp3ex);
+      delete m_mp3ex;
     }
   }
 
@@ -45,213 +29,78 @@ namespace audiere {
   bool
   MP3InputStream::initialize(FilePtr file) {
     m_file = file;
-    m_seekable = m_file->seek(0, File::END);
     readID3v1Tags();
     readID3v2Tags();
     m_file->seek(0, File::BEGIN);
-    m_eof = false;
 
-    m_context = new MPAuDecContext;
-    if (!m_context)
+    m_mp3ex = new mp3dec_ex_t;
+    if (!m_mp3ex)
       return false;
-    if (mpaudec_init(m_context) < 0) {
-      delete m_context;
-      m_context = 0;
+
+    if (mp3dec_ex_open_cb(m_mp3ex, &m_mp3io, MP3D_SEEK_TO_SAMPLE))
+    {
+      delete m_mp3ex;
+      m_mp3ex = 0;
       return false;
     }
 
-    m_input_position = 0;
-    m_input_length = 0;
-    m_decode_buffer = new u8[MPAUDEC_MAX_AUDIO_FRAME_SIZE];
-    if (!m_decode_buffer)
-        return false;
-    m_first_frame = true;
-
-    if (m_seekable) {
-      // Scan the file to determine the length.
-      m_context->parse_only = 1;
-      while (!m_eof) {
-        if (!decodeFrame())
-          return false;
-        if (!m_eof)
-          m_frame_sizes.push_back(m_context->frame_size);
-          int frame_offset = m_file->tell() -
-                             (m_input_length - m_input_position) -
-                             m_context->coded_frame_size;
-          m_frame_offsets.push_back(frame_offset);
-          m_length += m_context->frame_size;
-      }
-      reset();
-    }
-
-    // this should fill in the audio format if it isn't set already
-    return decodeFrame();
-  }
-
-  bool
-  MP3InputStream::isSeekable() {
-    return m_seekable;
-  }
-
-  int
-  MP3InputStream::getPosition() {
-     return m_position;
+    return true;
   }
 
   void
-  MP3InputStream::setPosition(int position) {
-    if (!m_seekable || position > m_length)
-      return;
-    int scan_position = 0;
-    int target_frame = 0;
-    int frame_count = m_frame_sizes.size();
-    while (target_frame < frame_count) {
-      int frame_size = m_frame_sizes[target_frame];
-      if (position <= scan_position + frame_size)
-        break;
-      else {
-        scan_position += frame_size;
-        target_frame++;
-      }
-    }
-    // foobar2000's MP3 input plugin decodes and throws away the 10 frames
-    // before the target frame whenever possible, presumably to ensure correct
-    // output when jumping into the middle of a stream.  So we'll do that here.
-    const int MAX_FRAME_DEPENDENCY = 10;
-    target_frame = std::max(0, target_frame - MAX_FRAME_DEPENDENCY);
-    reset();
-    m_file->seek(m_frame_offsets[target_frame], File::BEGIN);
-    int i;
-    for (i = 0; i < target_frame; i++) {
-      m_position += m_frame_sizes[i];
-    }
-    if (!decodeFrame() || m_eof) {
-      reset();
-      return;
-    }
-    int frames_to_consume = position - m_position; // PCM frames now
-    if (frames_to_consume > 0) {
-      u8 *buf = new u8[frames_to_consume * GetFrameSize(this)];
-      doRead(frames_to_consume, buf);
-      delete[] buf;
-    }
-  }
-
-  int
-  MP3InputStream::getLength() {
-    return m_length;
-  }
-
-  void
-  MP3InputStream::getFormat(
+    MP3InputStream::getFormat(
     int& channel_count,
     int& sample_rate,
     SampleFormat& sample_format)
   {
-    channel_count = m_channel_count;
-    sample_rate = m_sample_rate;
-    sample_format = m_sample_format;
+    channel_count = m_mp3ex->info.channels;
+    sample_rate = m_mp3ex->info.hz;
+    sample_format = SF_S16;
   }
 
-  
+  bool
+  MP3InputStream::isSeekable() {
+    return true;
+  }
+
+  int
+    MP3InputStream::getLength() {
+    return m_mp3ex->samples / m_mp3ex->info.channels;
+  }
+
+  int
+  MP3InputStream::getPosition() {
+     return m_mp3ex->cur_sample / m_mp3ex->info.channels;
+  }
+
+  void
+  MP3InputStream::setPosition(int position) {
+    mp3dec_ex_seek(m_mp3ex, position * m_mp3ex->info.channels);
+  }
+
   int
   MP3InputStream::doRead(int frame_count, void* samples) {
     ADR_GUARD("MP3InputStream::doRead");
-
-    const int frame_size = GetFrameSize(this);
-
-    int frames_read = 0;
-    u8* out = (u8*)samples;
-
-    while (frames_read < frame_count) {
-
-      // no more samples?  ask the MP3 for more
-      if (m_buffer.getSize() < frame_size) {
-        if (!decodeFrame() || m_eof) {
-          // done decoding?
-          return frames_read;
-        }
-
-        // if the buffer is still empty, we are done
-        if (m_buffer.getSize() < frame_size) {
-          return frames_read;
-        }
-      }
-
-      const int frames_left = frame_count - frames_read;
-      const int frames_to_read = std::min(
-        frames_left,
-        m_buffer.getSize() / frame_size);
-
-      m_buffer.read(out, frames_to_read * frame_size);
-      out += frames_to_read * frame_size;
-      frames_read += frames_to_read;
-      m_position += frames_to_read;
-    }
-
-    return frames_read;
+    return mp3dec_ex_read(m_mp3ex, (mp3d_sample_t*)samples, frame_count * m_mp3ex->info.channels) / m_mp3ex->info.channels;
   }
-
 
   void
   MP3InputStream::reset() {
     ADR_GUARD("MP3InputStream::reset");
-
-    m_file->seek(0, File::BEGIN);
-    m_eof = false;
-
-    m_buffer.clear();
-
-    mpaudec_clear(m_context);
-    mpaudec_init(m_context);
-
-    m_input_position = 0;
-    m_input_length = 0;
-    m_position = 0;
+    mp3dec_ex_seek(m_mp3ex, 0);
   }
 
 
-  bool
-  MP3InputStream::decodeFrame() {
-    int output_size = 0;
-    while (output_size == 0) {
-      if (m_input_position == m_input_length) {
-        m_input_position = 0;
-        m_input_length = m_file->read(m_input_buffer, INPUT_BUFFER_SIZE);
-        if (m_input_length == 0) {
-          m_eof = true;
-          return true;
-        }
-      }
-      int rv = mpaudec_decode_frame(
-          m_context, (s16*)m_decode_buffer,
-          &output_size,
-          (unsigned char*)m_input_buffer + m_input_position,
-          m_input_length - m_input_position);
-      if (rv < 0)
-        return false;
-      m_input_position += rv;
-    }
-    if (m_first_frame) {
-      m_channel_count = m_context->channels;
-      m_sample_rate = m_context->sample_rate;
-      m_sample_format = SF_S16;
-      m_first_frame = false;
-    } else if (m_context->channels != m_channel_count ||
-               m_context->sample_rate != m_sample_rate) {
-      // Can't handle format changes mid-stream.
-      return false;
-    }
-    if (!m_context->parse_only) {
-      if (output_size < 0) {
-        // Couldn't decode this frame.  Too bad, already lost it.
-        // This should only happen when seeking.
-        output_size = m_context->frame_size;
-        memset(m_decode_buffer, 0, output_size * GetFrameSize(this));
-      }
-      m_buffer.write(m_decode_buffer, output_size);
-    }
-    return true;
+  size_t
+  MP3InputStream::mp3Read(void *buf, size_t size, void *user_data) {
+    MP3InputStream* stream = reinterpret_cast<MP3InputStream*>(user_data);
+    return stream->m_file->read(buf, size);
+  }
+
+  int
+  MP3InputStream::mp3Seek(uint64_t position, void *user_data) {
+    MP3InputStream* stream = reinterpret_cast<MP3InputStream*>(user_data);
+    return stream->m_file->seek(position, File::BEGIN) ? 0 : 1;
   }
 
 
@@ -283,7 +132,7 @@ namespace audiere {
       "Slow Jam", "Club", "Tango", "Samba", "Folklore", "Ballad",
       "Power Ballad", "Rhythmic Soul", "Freestyle", "Duet", "Punk Rock",
       "Drum Solo", "Acapella", "Euro-House", "Dance Hall",
-      
+
       // http://lame.sourceforge.net/doc/html/id3.html
 
       "Goa", "Drum & Bass", "Club-House", "Hardcore", "Terror", "Indie",
@@ -349,7 +198,7 @@ namespace audiere {
     }
   }
 
-  
+
   void
   MP3InputStream::readID3v2Tags() {
     // ID3v2 is super complicated.

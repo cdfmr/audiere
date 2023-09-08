@@ -1,7 +1,7 @@
 #ifndef INPUT_MP3_H
 #define INPUT_MP3_H
 
-#include "mpaudec/mpaudec.h"
+#include "minimp3/minimp3_ex.h"
 #include "audiere.h"
 #include "basic_source.h"
 #include "types.h"
@@ -32,32 +32,14 @@ namespace audiere {
   private:
     void readID3v1Tags();
     void readID3v2Tags();
-    bool decodeFrame();
 
     FilePtr m_file;
-    bool m_eof;
 
-    // from format chunk
-    int m_channel_count;
-    int m_sample_rate;
-    SampleFormat m_sample_format;
+    mp3dec_ex_t* m_mp3ex;
+    mp3dec_io_t  m_mp3io;
 
-    MPAuDecContext* m_context;
-    
-    QueueBuffer m_buffer;
-
-    enum { INPUT_BUFFER_SIZE = 4096 };
-    u8 m_input_buffer[INPUT_BUFFER_SIZE];
-    int m_input_position;
-    int m_input_length;
-    u8* m_decode_buffer;
-    bool m_first_frame;
-
-    bool m_seekable;
-    int m_length;
-    int m_position;
-    std::vector<int> m_frame_sizes;
-    std::vector<int> m_frame_offsets;
+    static size_t mp3Read(void *buf, size_t size, void *user_data);
+    static int mp3Seek(uint64_t position, void *user_data);
   };
 
 }

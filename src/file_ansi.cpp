@@ -48,4 +48,10 @@ namespace audiere {
     return (file ? new CFile(file) : 0);
   }
 
+
+  ADR_EXPORT(File*) AdrOpenFileW(const wchar_t* filename, bool writeable) {
+    FILE* file = _wfopen((const unsigned short *)filename, writeable ? L"wb" : L"rb");
+    return (file ? new CFile(file) : 0);
+  }
+
 }

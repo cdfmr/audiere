@@ -96,11 +96,41 @@ namespace audiere {
     }
   }
 
-  
+
   int
   MODInputStream::doRead(int frame_count, void* buffer) {
     return duh_render(m_renderer, 16, 0, 1.0f, 65536.0f / 44100,
                       frame_count, buffer);
+  }
+
+
+  bool
+  MODInputStream::isSeekable() {
+    return true;
+  }
+
+  int
+  MODInputStream::getPosition() {
+    return (u64)duh_sigrenderer_get_position(m_renderer) * 44100 >> 16;
+  }
+
+  void
+  MODInputStream::setPosition(int position) {
+    DUH_SIGRENDERER* renderer = duh_start_sigrenderer(m_duh, 0, 2, ((u64)position << 16) / 44100);
+    if (renderer) {
+      if (m_renderer) {
+        duh_end_sigrenderer(m_renderer);
+      }
+      m_renderer = renderer;
+
+      DUMB_IT_SIGRENDERER* renderer = duh_get_it_sigrenderer(m_renderer);
+      dumb_it_set_loop_callback(renderer, &MODInputStream::loopCallback, this);
+    }
+  }
+
+  int
+  MODInputStream::getLength() {
+    return (u64)duh_get_length(m_duh) * 44100 >> 16;
   }
 
 
@@ -123,13 +153,13 @@ namespace audiere {
     return dumb_load_mod(filename);
   }
 
-  
+
   void*
   MODInputStream::dfs_open(const char* filename) {
     return const_cast<char*>(filename);
   }
 
-  
+
   int
   MODInputStream::dfs_skip(void* f, long n) {
     File* file = (File*)f;

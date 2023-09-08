@@ -10,7 +10,7 @@ namespace audiere {
 
   class MemoryFile : public RefImplementation<File> {
   public:
-    MemoryFile(const void* buffer, int size);
+    MemoryFile(const void* buffer, int size, bool copydata = true);
     ~MemoryFile();
 
     int  ADR_CALL read(void* buffer, int size);
@@ -24,6 +24,7 @@ namespace audiere {
     u8* m_buffer;
     int m_position;
     int m_size;
+    bool m_owndata;
 
     /// The actual size of m_buffer.  Always a power of two.
     int m_capacity;

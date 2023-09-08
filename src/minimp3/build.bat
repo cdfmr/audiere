@@ -1,0 +1,1 @@
+gcc -O2 -c -o minimp3.obj minimp3.c

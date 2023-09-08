@@ -43,7 +43,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "AUDIERE_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MT /W3 /GR /GX /O2 /I "../../third-party/vc6/include" /D "NDEBUG" /D for="if (0) ; else for" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "AUDIERE_EXPORTS" /D "NOMINMAX" /D "FLAC__NO_DLL" /FD /c
+# ADD CPP /nologo /MT /W3 /GR /GX /O2 /I "../../third-party/vc6/include" /D "NDEBUG" /D for="if (0) ; else for" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "AUDIERE_EXPORTS" /D "NOMINMAX" /D "FLAC__NO_DLL" /D "NO_SPEEX" /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -53,7 +53,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 libspeex.lib libFLAC++_static.lib libFLAC_static.lib dumb_static.lib vorbisfile_static.lib vorbis_static.lib ogg_static.lib dxguid.lib rpcrt4.lib winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"../bin/Release/audiere.dll" /libpath:"../../third-party/vc6/lib"
+# ADD LINK32 libFLAC++_static.lib libFLAC_static.lib dumb_static.lib vorbisfile_static.lib vorbis_static.lib ogg_static.lib dxguid.lib rpcrt4.lib winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"../bin/Release/audiere.dll" /libpath:"../../third-party/vc6/lib"
 
 !ELSEIF  "$(CFG)" == "audiere - Win32 Debug"
 
@@ -69,7 +69,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "AUDIERE_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MTd /W3 /Gm /GR /GX /ZI /Od /I "../../third-party/vc6/include" /D "_DEBUG" /D for="if (0) ; else for" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "AUDIERE_EXPORTS" /D "NOMINMAX" /D "FLAC__NO_DLL" /FD /D /GZ /c
+# ADD CPP /nologo /MTd /W3 /Gm /GR /GX /ZI /Od /I "../../third-party/vc6/include" /D "_DEBUG" /D for="if (0) ; else for" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "AUDIERE_EXPORTS" /D "NOMINMAX" /D "FLAC__NO_DLL" /D "NO_SPEEX" /FD /D /GZ /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -79,7 +79,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 libspeexd.lib libFLAC++_static_d.lib libFLAC_static_d.lib dumbd_static.lib vorbisfile_static_d.lib vorbis_static_d.lib ogg_static_d.lib dxguid.lib rpcrt4.lib winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /out:"../bin/Debug/audiere.dll" /pdbtype:sept /libpath:"../../third-party/vc6/lib"
+# ADD LINK32 libFLAC++_static_d.lib libFLAC_static_d.lib dumbd_static.lib vorbisfile_static_d.lib vorbis_static_d.lib ogg_static_d.lib dxguid.lib rpcrt4.lib winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /out:"../bin/Debug/audiere.dll" /pdbtype:sept /libpath:"../../third-party/vc6/lib"
 
 !ENDIF 
 
@@ -97,6 +97,14 @@ SOURCE=..\..\src\audiere.h
 # Begin Source File
 
 SOURCE=..\..\src\audiere.rc
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\src\audiere_simple.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\src\audiere_simple.h
 # End Source File
 # Begin Source File
 
@@ -236,14 +244,6 @@ SOURCE=..\..\src\input_ogg.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\src\input_speex.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\src\input_speex.h
-# End Source File
-# Begin Source File
-
 SOURCE=..\..\src\input_wav.cpp
 # End Source File
 # Begin Source File
@@ -343,44 +343,24 @@ SOURCE=..\..\src\utility.h
 SOURCE=..\..\src\version.cpp
 # End Source File
 # End Group
-# Begin Group "mpaudec"
+# Begin Group "minimp3"
 
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\..\src\mpaudec\bits.c
+SOURCE=..\..\src\minimp3\minimp3.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\src\mpaudec\internal.h
+SOURCE=..\..\src\minimp3\minimp3_ex.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\src\mpaudec\mpaudec.c
+SOURCE=..\..\src\minimp3\minimp3.obj
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\src\mpaudec\mpaudec.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\src\mpaudec\mpaudectab.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\src\mpaudec\mpegaudio.h
-# End Source File
-# End Group
-# Begin Group "speexfile"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=..\..\src\speexfile\speexfile.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\src\speexfile\speexfile.h
+SOURCE=..\..\src\minimp3\_chkstk_ms.obj
 # End Source File
 # End Group
 # End Target

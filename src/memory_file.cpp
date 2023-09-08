@@ -16,6 +16,17 @@ namespace audiere {
     return new MemoryFile(buffer, size);
   }
 
+  ADR_EXPORT(File*) AdrCreateMemoryFileInPlace(const void* buffer, int size) {
+    if (size && !buffer) {
+      return 0;
+    }
+    if (size < 0) {
+      return 0;
+    }
+
+    return new MemoryFile(buffer, size, false);
+  }
+
 
   int getNextPowerOfTwo(int value) {
     int i = 1;
@@ -25,17 +36,25 @@ namespace audiere {
     return i;
   }
 
-  MemoryFile::MemoryFile(const void* buffer, int size) {
-    m_capacity = getNextPowerOfTwo(size);
+  MemoryFile::MemoryFile(const void* buffer, int size, bool copydata) {
     m_size = size;
-    m_buffer = new u8[m_capacity];
-    memcpy(m_buffer, buffer, size);
+    m_owndata = copydata;
+    if (copydata) {
+      m_capacity = getNextPowerOfTwo(size);
+      m_buffer = new u8[m_capacity];
+      memcpy(m_buffer, buffer, size);
+    } else {
+      m_capacity = size;
+      m_buffer = (u8*)buffer;
+    }
 
     m_position = 0;
   }
 
   MemoryFile::~MemoryFile() {
-    delete[] m_buffer;
+    if (m_owndata) {
+      delete[] m_buffer;
+    }
   }
 
   int ADR_CALL MemoryFile::read(void* buffer, int size) {
@@ -76,16 +95,25 @@ namespace audiere {
 
   void MemoryFile::ensureSize(int min_size) {
     bool realloc_needed = false;
-    while (m_capacity < min_size) {
-      m_capacity *= 2;
+    if (m_capacity < min_size) {
       realloc_needed = true;
+      if (m_owndata) {
+        while (m_capacity < min_size) {
+          m_capacity *= 2;
+        }
+      } else {
+        m_capacity = getNextPowerOfTwo(min_size);
+      }
     }
 
     if (realloc_needed) {
       u8* new_buffer = new u8[m_capacity];
       memcpy(new_buffer, m_buffer, m_size);
-      delete[] m_buffer;
+      if (m_owndata) {
+        delete[] m_buffer;
+      }
       m_buffer = new_buffer;
+      m_owndata = true;
     }
 
     m_size = min_size;

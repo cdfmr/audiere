@@ -25,6 +25,11 @@ namespace audiere {
 
     int doRead(int frame_count, void* buffer);
 
+    bool ADR_CALL isSeekable();
+    int  ADR_CALL getLength();
+    void ADR_CALL setPosition(int position);
+    int  ADR_CALL getPosition();
+
   private:
     DUH* openDUH();
 

@@ -74,7 +74,7 @@ namespace audiere {
 
 
 #define TRY_OPEN(format) {                                    \
-  SampleSource* source = OpenSource(file, filename, format);  \
+  SampleSource* source = OpenSource(file, NULL, format);  \
   if (source) {                                               \
     return source;                                            \
   }                                                           \
@@ -92,6 +92,17 @@ namespace audiere {
   }
 
 
+  bool end_is(const wchar_t* begin, const wchar_t* ext) {
+    const wchar_t* end = begin + wcslen(begin);
+    int ext_length = wcslen(ext);
+    if (ext_length > end - begin) {
+      return false;
+    } else {
+      return (_wcsicmp(end - ext_length, ext) == 0);
+    }
+  }
+
+
   FileFormat GuessFormat(const char* filename) {
     if (end_is(filename, ".aiff")) {
       return FF_AIFF;
@@ -101,7 +112,9 @@ namespace audiere {
       return FF_OGG;
     } else if (end_is(filename, ".flac")) {
       return FF_FLAC;
-    } else if (end_is(filename, ".mp3")) {
+    } else if (end_is(filename, ".mp3") ||
+               end_is(filename, ".mp2") ||
+               end_is(filename, ".mp1")) {
       return FF_MP3;
     } else if (end_is(filename, ".it") ||
                end_is(filename, ".xm") ||
@@ -109,6 +122,32 @@ namespace audiere {
                end_is(filename, ".mod")) {
       return FF_MOD;
     } else if (end_is(filename, ".spx")) {
+      return FF_SPEEX;
+    } else {
+      return FF_AUTODETECT;
+    }
+  }
+
+
+  FileFormat GuessFormat(const wchar_t* filename) {
+    if (end_is(filename, L".aiff")) {
+      return FF_AIFF;
+    } else if (end_is(filename, L".wav")) {
+      return FF_WAV;
+    } else if (end_is(filename, L".ogg")) {
+      return FF_OGG;
+    } else if (end_is(filename, L".flac")) {
+      return FF_FLAC;
+    } else if (end_is(filename, L".mp3") ||
+               end_is(filename, L".mp2") ||
+               end_is(filename, L".mp1")) {
+      return FF_MP3;
+    } else if (end_is(filename, L".it") ||
+               end_is(filename, L".xm") ||
+               end_is(filename, L".s3m") ||
+               end_is(filename, L".mod")) {
+      return FF_MOD;
+    } else if (end_is(filename, L".spx")) {
       return FF_SPEEX;
     } else {
       return FF_AUTODETECT;
@@ -133,7 +172,7 @@ namespace audiere {
 
     switch (file_format) {
       case FF_AUTODETECT:
-        
+
         // if filename is available, use it as a hint
         if (filename) {
           FileFormat format = GuessFormat(filename);
@@ -196,6 +235,42 @@ namespace audiere {
   }
 
 
+  /**
+   * The internal implementation of OpenSampleSource.
+   *
+   * @param file         the file to load from.  cannot be 0.
+   * @param filename     the name of the file, or 0 if it is not available
+   * @param file_format  the format of the file or FF_AUTODETECT
+   */
+  SampleSource* OpenSourceW(
+    const FilePtr& file,
+    const wchar_t* filename,
+    FileFormat file_format)
+  {
+    ADR_GUARD("OpenSourceW");
+    ADR_ASSERT(file != 0, "file must not be null");
+
+    if (filename && (file_format == FF_AUTODETECT)) {
+        FileFormat format = GuessFormat(filename);
+        if (format != FF_AUTODETECT) {
+          TRY_OPEN(format);
+        }
+
+        // autodetect otherwise, in decreasing order of possibility of failure
+        TRY_OPEN(FF_AIFF);
+        TRY_OPEN(FF_WAV);
+        TRY_OPEN(FF_OGG);
+        TRY_OPEN(FF_FLAC);
+        TRY_OPEN(FF_SPEEX);
+        TRY_OPEN(FF_MP3);
+        TRY_OPEN(FF_MOD);
+        return 0;
+    } else {
+      return OpenSource(file, NULL, file_format);
+    }
+  }
+
+
   ADR_EXPORT(SampleSource*) AdrOpenSampleSource(
     const char* filename,
     FileFormat file_format)
@@ -208,6 +283,21 @@ namespace audiere {
       return 0;
     }
     return OpenSource(file, filename, file_format);
+  }
+
+
+  ADR_EXPORT(SampleSource*) AdrOpenSampleSourceW(
+    const wchar_t* filename,
+    FileFormat file_format)
+  {
+    if (!filename) {
+      return 0;
+    }
+    FilePtr file = OpenFile(filename, false);
+    if (!file) {
+      return 0;
+    }
+    return OpenSourceW(file, filename, file_format);
   }
 
 

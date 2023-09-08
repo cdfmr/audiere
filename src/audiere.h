@@ -113,7 +113,7 @@ namespace audiere {
         m_ptr = 0;
       }
     }
- 
+
     RefPtr<T>& operator=(T* ptr) {
       if (ptr != m_ptr) {
         if (m_ptr) {
@@ -167,7 +167,7 @@ namespace audiere {
   bool operator==(const T* a, const RefPtr<T>& b) {
       return (a == b.get());
   }
-  
+
 
   template<typename T, typename U>
   bool operator!=(const RefPtr<T>& a, const RefPtr<U>& b) {
@@ -345,7 +345,7 @@ namespace audiere {
      *          seekable
      */
     ADR_METHOD(int) getLength() = 0;
-    
+
     /**
      * Sets the current position within the sample source.  If the stream
      * is not seekable, this method does nothing.
@@ -362,11 +362,6 @@ namespace audiere {
     ADR_METHOD(int) getPosition() = 0;
 
     /**
-     * @return  true if the sample source is set to repeat
-     */
-    ADR_METHOD(bool) getRepeat() = 0;
-
-    /**
      * Sets whether the sample source should repeat or not.  Note that not
      * all sample sources repeat by starting again at the beginning of the
      * sound.  For example MOD files can contain embedded loop points.
@@ -374,6 +369,11 @@ namespace audiere {
      * @param repeat  true if the source should repeat, false otherwise
      */
     ADR_METHOD(void) setRepeat(bool repeat) = 0;
+
+    /**
+     * @return  true if the sample source is set to repeat
+     */
+    ADR_METHOD(bool) getRepeat() = 0;
 
     /// Returns number of metadata tags present in this sample source.
     ADR_METHOD(int) getTagCount() = 0;
@@ -566,7 +566,7 @@ namespace audiere {
      *          seekable
      */
     ADR_METHOD(int) getLength() = 0;
-    
+
     /**
      * Sets the current position within the sample source.  If the stream
      * is not seekable, this method does nothing.
@@ -636,7 +636,7 @@ namespace audiere {
   /**
    * Base interface for all callbacks.  See specific callback implementations
    * for descriptions.
-   */  
+   */
   class Callback : public RefCounted {
   protected:
     ~Callback() { }
@@ -655,7 +655,7 @@ namespace audiere {
   };
   typedef RefPtr<Callback> CallbackPtr;
 
-  
+
   /**
    * To listen for stream stopped events on a device, implement this interface
    * and call registerStopCallback() on the device, passing your
@@ -761,7 +761,7 @@ namespace audiere {
      * registered multiple times.
      */
     ADR_METHOD(void) registerCallback(Callback* callback) = 0;
-    
+
     /**
      * Unregisters 'callback' once.  If it is registered multiple times,
      * each unregisterStopCallback call unregisters one of the instances.
@@ -930,7 +930,7 @@ namespace audiere {
      * does nothing.
      */
     ADR_METHOD(void) stop() = 0;
-    
+
     /**
      * pauses playback of the track that is currently playing (if any)
      * This does nothing if no track is playing
@@ -1075,6 +1075,9 @@ namespace audiere {
     ADR_FUNCTION(SampleSource*) AdrOpenSampleSource(
       const char* filename,
       FileFormat file_format);
+    ADR_FUNCTION(SampleSource*) AdrOpenSampleSourceW(
+      const wchar_t* filename,
+      FileFormat file_format);
     ADR_FUNCTION(SampleSource*) AdrOpenSampleSourceFromFile(
       File* file,
       FileFormat file_format);
@@ -1108,8 +1111,15 @@ namespace audiere {
     ADR_FUNCTION(File*) AdrOpenFile(
       const char* name,
       bool writeable);
+    ADR_FUNCTION(File*) AdrOpenFileW(
+      const wchar_t* name,
+      bool writeable);
 
     ADR_FUNCTION(File*) AdrCreateMemoryFile(
+      const void* buffer,
+      int size);
+
+    ADR_FUNCTION(File*) AdrCreateMemoryFileInPlace(
       const void* buffer,
       int size);
 
@@ -1252,6 +1262,20 @@ namespace audiere {
   }
 
   /**
+   * Create a streaming sample source from a sound file.  This factory simply
+   * opens a default file from the system filesystem and calls
+   * OpenSampleSource(File*).
+   *
+   * @see OpenSampleSource(File*)
+   */
+  inline SampleSource* OpenSampleSource(
+    const wchar_t* filename,
+    FileFormat file_format = FF_AUTODETECT)
+  {
+    return hidden::AdrOpenSampleSourceW(filename, file_format);
+  }
+
+  /**
    * Opens a sample source from the specified file object.  If the sound file
    * cannot be opened, this factory function returns 0.
    *
@@ -1337,6 +1361,16 @@ namespace audiere {
    * Creates a LoopPointSource from a source loaded from a file.
    */
   inline LoopPointSource* CreateLoopPointSource(
+    const wchar_t* filename,
+    FileFormat file_format = FF_AUTODETECT)
+  {
+    return CreateLoopPointSource(OpenSampleSource(filename, file_format));
+  }
+
+  /**
+   * Creates a LoopPointSource from a source loaded from a file.
+   */
+  inline LoopPointSource* CreateLoopPointSource(
     const FilePtr& file,
     FileFormat file_format = FF_AUTODETECT)
   {
@@ -1383,6 +1417,20 @@ namespace audiere {
   inline OutputStream* OpenSound(
     const AudioDevicePtr& device,
     const char* filename,
+    bool streaming = false,
+    FileFormat file_format = FF_AUTODETECT)
+  {
+    SampleSource* source = OpenSampleSource(filename, file_format);
+    return OpenSound(device, source, streaming);
+  }
+
+  /**
+   * Calls OpenSound(AudioDevice*, SampleSource*) with a sample source
+   * created via OpenSampleSource(const char*).
+   */
+  inline OutputStream* OpenSound(
+    const AudioDevicePtr& device,
+    const wchar_t* filename,
     bool streaming = false,
     FileFormat file_format = FF_AUTODETECT)
   {
@@ -1484,6 +1532,20 @@ namespace audiere {
 
   /**
    * Calls OpenSoundEffect(AudioDevice*, SampleSource*,
+   * SoundEffectType) with a sample source created from the filename.
+   */
+  inline SoundEffect* OpenSoundEffect(
+    const AudioDevicePtr& device,
+    const wchar_t* filename,
+    SoundEffectType type,
+    FileFormat file_format = FF_AUTODETECT)
+  {
+    SampleSource* source = OpenSampleSource(filename, file_format);
+    return OpenSoundEffect(device, source, type);
+  }
+
+  /**
+   * Calls OpenSoundEffect(AudioDevice*, SampleSource*,
    * SoundEffectType) with a sample source created from the file.
    */
   inline SoundEffect* OpenSoundEffect(
@@ -1505,6 +1567,9 @@ namespace audiere {
   inline File* OpenFile(const char* filename, bool writeable) {
     return hidden::AdrOpenFile(filename, writeable);
   }
+  inline File* OpenFile(const wchar_t* filename, bool writeable) {
+    return hidden::AdrOpenFileW(filename, writeable);
+  }
 
   /**
    * Creates a File implementation that reads from a buffer in memory.
@@ -1519,8 +1584,12 @@ namespace audiere {
    * @return  0 if size is non-zero and buffer is null. Otherwise,
    *          returns a valid File object.
    */
-  inline File* CreateMemoryFile(const void* buffer, int size) {
-    return hidden::AdrCreateMemoryFile(buffer, size);
+  inline File* CreateMemoryFile(const void* buffer, int size, bool copydata = true) {
+    if (copydata) {
+      return hidden::AdrCreateMemoryFile(buffer, size);
+    } else {
+      return hidden::AdrCreateMemoryFileInPlace(buffer, size);
+    }
   }
 
   /**
@@ -1538,7 +1607,7 @@ namespace audiere {
 
   /**
    * Opens the specified CD playback device.
-   * 
+   *
    * @param device  The filesystem device to be played.
    *                e.g. Linux: "/dev/cdrom", Windows: "D:"
    *
